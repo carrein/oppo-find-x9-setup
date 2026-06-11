@@ -3,11 +3,12 @@
 #
 #   * --dry-run is the DEFAULT: reports what WOULD change, mutates nothing. --apply to mutate.
 #   * Read-before-write: each setting is read first; matching values report ALREADY-OK.
-#   * Currently controlled:
-#       global audio_safe_volume_state = 1  — disables the EU loudness/"safe volume" warning
-#         that re-arms on USB-C DACs (0=NOT_CONFIGURED 1=DISABLED 2=INACTIVE 3=ACTIVE).
-#         NOTE: known to occasionally reset on reboot — re-run this script (or check
-#         99-verify-all.sh, which flags it) if the warning comes back.
+#   * Currently controlled: NOTHING — this is a scaffold for future settings.
+#       global audio_safe_volume_state = 1 (EU loudness-warning kill) was controlled here
+#       and verified by 99 until real-device experience showed it does NOT persist across
+#       reboots on ColorOS 16 — chasing it is churn, so it was dropped from canon.
+#       The one-liner if you want it for the current boot anyway:
+#         adb shell settings put global audio_safe_volume_state 1
 #
 # Usage: scripts/03-settings.sh [--dry-run|--apply]
 set -u
@@ -34,6 +35,8 @@ ensure_setting() { # ensure_setting <namespace> <key> <want> <label>
   fi
 }
 
-ensure_setting global audio_safe_volume_state 1 "safe-volume warning off"
+# no settings currently controlled — see header. ensure_setting stays for the next one:
+#   ensure_setting <namespace> <key> <want> <label>
+echo "no settings under management (audio_safe_volume_state dropped — does not persist; see header)"
 
 totals

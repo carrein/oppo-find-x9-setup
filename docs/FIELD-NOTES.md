@@ -67,12 +67,12 @@ Devices referenced: Find X9 Ultra (`<device-serial>`, ColorOS 16) and Find X9 (`
     followed by silence and `result code=0`.
   - `pm list packages -u` confirms the package exists on system partition but is uninstalled-for-user.
 - **Root cause:** The Camera intent pins both `pkg` AND `cmp` to `com.coloros.gallery3d`. The explicit component bypasses the resolver entirely, so registering a different default gallery (Aves, Snapseed, etc.) does nothing. Cannot be remapped without root.
-- **Mitigation** (automated by `scripts/02-regression-fixes.sh`):
+- **Mitigation (works, deliberately not applied):**
   ```
   adb shell cmd package install-existing com.coloros.gallery3d
   ```
   APK is still on the system partition, just removed per-user. OPPO Gallery is only invoked from the camera preview — won't take over as default elsewhere.
-- **Alternative:** Use a third-party camera app that fires generic `VIEW` intents.
+- **Canonical decision:** the broken preview is *accepted*. Reinstating OPPO Gallery was tried and reverted; the only other escape is a third-party camera app (generic `VIEW` intents), rejected as not worth the trust tradeoff. `com.coloros.gallery3d` stays in the debloat list and `99-verify-all.sh` expects it uninstalled.
 
 ---
 
@@ -105,7 +105,7 @@ Devices referenced: Find X9 Ultra (`<device-serial>`, ColorOS 16) and Find X9 (`
 - **Symptom:** Find X9 has IR hardware (`android.hardware.consumerir`, `/dev/oplus_consumer_ir`) but no IR Remote app anywhere — absent even from `pm list packages -u`, so there is nothing for adb to enable.
 - **Root cause:** The native app, `com.oplus.consumerIRApp` ("IR Remote", launcher activity `.navigation.LauncherActivity`), is fetched on demand from the OPPO App Market (`com.heytap.market`) on first use. Debloating the Market removes the delivery channel.
 - **Red herrings:** `com.oplus.remotecontrol` is remote *assistance* (screen share, no launcher activity); `com.oplus.atlas` is a background service with zero activities. Neither holds `android.permission.TRANSMIT_IR` — the definitive identifier of the real IR app.
-- **Mitigation:** keep `com.heytap.market` installed (it's in `config/keep-installed.json`), or sideload the APK via `scripts/fetch-apk.sh com.oplus.consumerIRApp` and verify the Oplus signature before `adb install`. Sideloading works because it's first-party for this ROM — third-party IR apps hit an IR-API block.
+- **Mitigation (canonical):** sideload the APK via `scripts/fetch-apk.sh com.oplus.consumerIRApp` and verify the Oplus signature before `adb install` — it works because the app is first-party for this ROM, while third-party IR apps hit an IR-API block. `com.heytap.market` itself is deliberately kept **disabled** (`keepDisabled` in `config/keep-installed.json`): it phones home, and sideloading covers its only legitimate job.
 
 ---
 
@@ -125,7 +125,14 @@ Devices referenced: Find X9 Ultra (`<device-serial>`, ColorOS 16) and Find X9 (`
 
 ---
 
-## 10. App launch counts for home-screen planning
+## 10. EU loudness warning cannot be durably disabled
+
+- `adb shell settings put global audio_safe_volume_state 1` (values: 0=NOT_CONFIGURED, 1=DISABLED/user-dismissed, 2=INACTIVE, 3=ACTIVE) silences the EN 50332 "safe volume" warning that re-arms on USB-C DACs — but on ColorOS 16 the key **does not persist across reboots**: it returns to 3 (armed).
+- **Canonical decision:** dropped from managed settings (`03-settings.sh` controls nothing because of this). Re-run the one-liner per boot if the warning bothers you that day; chasing persistence (device_config, props) wasn't worth it without root.
+
+---
+
+## 11. App launch counts for home-screen planning
 
 - `adb shell dumpsys usagestats` → parse `package=… appLaunchCount=N` lines. Buckets are **calendar-aligned** (daily / weekly / calendar-month / yearly), not rolling — the yearly bucket is the best habitual-use signal. No rolling 30-day window exists without root (`/data/system/usagestats/` is permission-denied; `cmd usagestats` has no query-by-range).
 - Exclude launchers (`app.lawnchair`, `com.android.launcher`) from the counts — recents/home invocations inflate them.

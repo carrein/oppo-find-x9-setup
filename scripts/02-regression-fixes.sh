@@ -2,12 +2,13 @@
 # 02-regression-fixes.sh — restore the packages that debloating breaks, idempotently.
 #
 #   * --dry-run is the DEFAULT: reports what WOULD change, mutates nothing. --apply to mutate.
-#   * Ensures every package in config/keep-installed.json (both 'exceptions' and
+#   * Ensures every package in config/keep-installed.json ('exceptions' and
 #     'mustStayEnabled') is installed for user 0 AND enabled:
 #       uninstalled-for-user  →  cmd package install-existing <pkg>
 #       disabled              →  pm enable <pkg>
-#   * Fixes covered: camera last-shot preview thumbnail (com.coloros.gallery3d) and the
-#     lockscreen 'Add widget' picker hang (pantanal.ums + uiengine + keyguard.style.widgets).
+#   * Fix covered: the lockscreen 'Add widget' picker hang (pantanal.ums + uiengine +
+#     keyguard.style.widgets). The camera-preview gallery3d fix used to live here too —
+#     deliberately dropped, see FIELD-NOTES #4 (broken preview accepted over OPPO Gallery).
 #   * Force-stops com.oplus.wallpapers once if any lockscreen-widget package changed —
 #     the picker is rendered inside that process and caches the broken state.
 #

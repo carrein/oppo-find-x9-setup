@@ -25,7 +25,7 @@ Prerequisites: `adb` (platform-tools) on the PATH, `python3`, USB or wireless de
 ### 🚫 Hard safety rules — never violate (each caused real breakage)
 
 1. **Never remove or disable `com.oplus.pantanal.ums`, `com.oplus.uiengine`, or `com.oplus.keyguard.style.widgets`.** The lockscreen "Add widget" picker spins forever with no error and nothing in the UI tells you why.
-2. **Never remove `com.coloros.gallery3d`.** The Camera app's preview thumbnail pins both `pkg` and `cmp` to it — with it gone, the tap is a silent no-op and no default-gallery setting can help.
+2. **Never expect the Camera preview thumbnail to work without `com.coloros.gallery3d`.** The Camera pins both `pkg` and `cmp` to it — with it debloated (the canonical state here), the tap is a silent no-op and no default-gallery setting can help. That's a known, accepted cost, not a bug to chase (see [docs/FIELD-NOTES.md](docs/FIELD-NOTES.md) #4).
 3. **Never trust the AOSP battery-optimization whitelist on ColorOS.** HANS freezes apps independently of it. The ColorOS battery "Don't optimize" list is a *separate* UI and the only exemption that counts.
 4. **Never install a mirror-downloaded APK without `apksigner verify --print-certs`** and comparing the digest against a known-good publisher fingerprint. `scripts/fetch-apk.sh` refuses to install for exactly this reason.
 5. **Never debug post-debloat weirdness without checking `pm list packages -u` first.** Half the "broken features" are explicit-component intents aimed at a package that's uninstalled-for-user.
@@ -36,7 +36,7 @@ Prerequisites: `adb` (platform-tools) on the PATH, `python3`, USB or wireless de
 
 Read-only snapshot: device identity (model, ColorOS/Android versions), package-state counts, drift between `config/debloat-list.json` and the device's actual state, dependency-trap status, watched settings. Run it first on a fresh device and again any time the device feels "off" — the drift section tells you exactly what an OTA quietly re-installed.
 
-**✅ Verify:** the report lists each dependency trap as `installed + enabled` and the drift section matches your expectations.
+**✅ Verify:** the report lists each `mustStayEnabled` package as `installed + enabled`, the `keepDisabled` set as `disabled`, and the drift section matches your expectations.
 
 ## Phase 1 — Debloat 🔒 `scripts/01-debloat.sh`
 
@@ -44,7 +44,8 @@ Uninstalls-for-user-0 every package in `config/debloat-list.json` — a real Fin
 
 | What | How it's handled |
 |---|---|
-| Dependency traps (`com.coloros.gallery3d`, …) | `SKIPPED` with the reason — see `config/keep-installed.json` |
+| Dependency-trap exceptions (`config/keep-installed.json`) | `SKIPPED` with the reason, never uninstalled |
+| `keepDisabled` set (`com.heytap.market`) | `pm disable-user --user 0` — data preserved, reversible with `pm enable` |
 | Packages not on your build/region | `NOT-FOUND`, harmless |
 | Already-debloated packages | `ALREADY-OK` (idempotent re-runs) |
 | Everything else | `pm uninstall --user 0`, re-checked, then `APPLIED` |
@@ -62,8 +63,8 @@ Restores what debloating breaks — learned the hard way, documented in [docs/FI
 | # | Fix | Symptom it cures |
 |---|---|---|
 | 1 | `pm enable com.oplus.pantanal.ums` + `com.oplus.uiengine` + `com.oplus.keyguard.style.widgets`, then force-stop `com.oplus.wallpapers` | Lockscreen "Add widget" picker hangs forever |
-| 2 | `cmd package install-existing com.coloros.gallery3d` | Camera preview thumbnail silently does nothing |
-| 3 | Keep `com.heytap.market` | IR Remote (`com.oplus.consumerIRApp`) is download-on-demand and has no other delivery channel |
+
+> **Deliberately NOT fixed.** Two regressions are known, fixable, and accepted as-is: the **camera preview thumbnail** stays a silent no-op (fixing it means reinstating OPPO Gallery — tried, reverted; FIELD-NOTES #4), and the **IR Remote** has no on-device delivery channel because `com.heytap.market` stays disabled — sideload it with `scripts/fetch-apk.sh com.oplus.consumerIRApp` instead (FIELD-NOTES #7).
 
 **One-time, manual** 🔒+🖥️ — camera **QR mode** uses a hardcoded GMS barcode proxy whose module downloads through the Play Store:
 
@@ -73,25 +74,21 @@ adb shell cmd package install-existing com.android.vending
 adb shell pm uninstall --user 0 com.android.vending
 ```
 
-**✅ Verify:** lockscreen → hold → "Add widget" opens; Camera → tap preview thumbnail opens the shot; Camera → QR mode scans.
+**✅ Verify:** lockscreen → hold → "Add widget" opens; Camera → QR mode scans. (The preview thumbnail staying dead is expected — see above.)
 
 ## Phase 3 — Settings 🔒 `scripts/03-settings.sh`
 
-ADB-scriptable settings, read-before-write:
+A scaffold, currently managing **nothing** — kept so future adb-scriptable settings have a numbered home with read-before-write semantics already built.
 
-| Setting | Value | Why |
-|---|---|---|
-| `global audio_safe_volume_state` | `1` | Kills the EU loudness warning that re-arms on USB-C DACs (1 = user-dismissed/disabled) |
+> **⚠️ Negative result worth keeping.** `global audio_safe_volume_state = 1` (kills the EU loudness warning that re-arms on USB-C DACs) was managed here until real-device experience showed it **does not persist across reboots** on ColorOS 16. Dropped from canon; the per-boot one-liner is `adb shell settings put global audio_safe_volume_state 1` (FIELD-NOTES #10).
 
-> **⚠️ Known flake.** This key occasionally resets on reboot. `99-verify-all.sh` flags it; re-run `03` if the warning comes back.
-
-**✅ Verify:** `adb shell settings get global audio_safe_volume_state` → `1`.
+**✅ Verify:** nothing to verify — the script reports `no settings under management`.
 
 ## Phase 4 — App sourcing without Google 🖥️ 🟧 `scripts/fetch-apk.sh`
 
 - **Aurora Store** (anonymous login) for Play-only apps. If every download fails with *"expected url scheme http or https"*, the anonymous session token is stale — Account → log out → log back in. The error never reaches logcat; don't go looking.
 - **`scripts/fetch-apk.sh <package.id>`** pulls an APK straight from the APKPure CDN (works when the web mirrors 403), decodes the CDN's declared filename/package so you can confirm the right app, and runs `apksigner verify --print-certs`. It **never installs** — compare the cert digest, then `adb install` yourself.
-- **IR Remote:** `scripts/fetch-apk.sh com.oplus.consumerIRApp` — first-party Oplus signature (DN `O=Oplus, CN=AndroidTeam, OU=OSTeam, L=DongGuan, C=CN`); sideloading works because it's first-party for this ROM, while third-party IR apps hit an IR-API block.
+- **IR Remote:** `scripts/fetch-apk.sh com.oplus.consumerIRApp` — first-party Oplus signature (DN `O=Oplus, CN=AndroidTeam, OU=OSTeam, L=DongGuan, C=CN`); sideloading works because it's first-party for this ROM, while third-party IR apps hit an IR-API block. This is the **canonical** delivery path — `com.heytap.market` stays disabled.
 
 **✅ Verify:** Aurora installs an app; `fetch-apk.sh` output shows the expected package id and a cert digest you recognize.
 
@@ -122,7 +119,7 @@ The separate **"Restricted activity"** toggle is invisible to adb in both direct
 
 ## ✅ Verify everything `scripts/99-verify-all.sh`
 
-Read-only; re-reads the full controlled state and prints `[PASS]`/`[FAIL]` per check — all 176 debloat-list packages (aggregated, failures itemized), every dependency trap `installed+enabled`, `com.android.vending` back off after the QR one-time, controlled settings. Exits non-zero on any mismatch, so it works in a cron/CI hook.
+Read-only; re-reads the full controlled state and prints `[PASS]`/`[FAIL]` per check — all 176 debloat-list packages (aggregated, failures itemized), every dependency trap `installed+enabled`, the `keepDisabled` set not enabled, `com.android.vending` back off after the QR one-time. Exits non-zero on any mismatch, so it works in a cron/CI hook.
 
 ---
 
@@ -130,6 +127,7 @@ Read-only; re-reads the full controlled state and prints `[PASS]`/`[FAIL]` per c
 
 - **The list is a snapshot.** `config/debloat-list.json` reflects one device on one firmware. New firmware ships new bloat — re-run `00-recon.sh` after updates and extend the list deliberately, not blindly.
 - **`pm uninstall --user 0` wipes the target's app data.** Fine for bloat; if you want data-preserving removal for an experiment, use `pm disable-user --user 0` instead (reverse: `pm enable`).
+- **Some breakage is chosen.** The camera preview thumbnail (needs OPPO Gallery back) and the loudness-warning suppression (doesn't survive reboot) are documented, fixable, and deliberately left broken. Don't "fix" them without re-reading FIELD-NOTES #4 and #10.
 - **HANS wins eventually.** Even exempted apps get frozen occasionally (~90–95% reliability ceilings on the key remaps). That's the platform, not a config error.
 - **ColorOS hides vendor state.** `dumpsys` for HANS/Athena is locked without root; some verifications here are necessarily behavioral. See [docs/diagnostics-cookbook.md](docs/diagnostics-cookbook.md) for what *is* observable.
 
@@ -149,7 +147,7 @@ oppo-find-x9-setup/
     ├── 00-recon.sh              👤 snapshot + drift report
     ├── 01-debloat.sh            🔒 the list, minus the traps
     ├── 02-regression-fixes.sh   🔒 what debloating breaks
-    ├── 03-settings.sh           🔒 scriptable settings
+    ├── 03-settings.sh           🔒 settings scaffold (currently none survive reboot)
     ├── fetch-apk.sh             APKPure CDN pull + signature check (never installs)
     └── 99-verify-all.sh         👤 PASS/FAIL · exit 1 on mismatch
 LICENSE (MIT)

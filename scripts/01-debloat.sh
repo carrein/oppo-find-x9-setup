@@ -1,12 +1,15 @@
 #!/usr/bin/env bash
-# 01-debloat.sh — uninstall-for-user-0 every package in config/debloat-list.json, idempotently.
+# 01-debloat.sh — enforce the package-state policy: uninstall-for-user-0 every package in
+# config/debloat-list.json, disable the 'keepDisabled' set, idempotently.
 #
 #   * --dry-run is the DEFAULT: reports what WOULD change, mutates nothing. --apply to mutate.
-#   * Idempotent: reads current state first; already-gone packages report ALREADY-OK.
-#   * Dependency traps listed in config/keep-installed.json are SKIPPED, never uninstalled
-#     (removing them breaks the camera preview / lockscreen widgets — see that file's reasons).
+#   * Idempotent: reads current state first; already-correct packages report ALREADY-OK.
+#   * Dependency traps listed in config/keep-installed.json 'exceptions' are SKIPPED, never
+#     uninstalled (see that file's reasons).
 #   * Uses `pm uninstall --user 0` (Canta's mechanism): APK stays on the system partition,
 #     reversible with `cmd package install-existing <pkg>`. App data of the target is wiped.
+#   * 'keepDisabled' packages get `pm disable-user --user 0` instead — data preserved,
+#     reversible with `pm enable`.
 #   * Packages absent from this build/region report NOT-FOUND and are skipped, never guessed.
 #
 # Run order on a fresh device:  00-recon.sh  →  01-debloat.sh --dry-run  →  01-debloat.sh --apply
@@ -44,6 +47,24 @@ while IFS= read -r pkg; do
     fi
   fi
 done < <(debloat_pkgs)
+
+# deliberately-disabled set (pm disable-user — data preserved, not uninstalled)
+while IFS= read -r pkg; do
+  if ! pkg_on_device "$pkg"; then
+    report NOT-FOUND disable "$pkg" "not on this build/region"
+  elif ! pkg_installed_user "$pkg" || pkg_disabled "$pkg"; then
+    report ALREADY-OK disable "$pkg" "not enabled"
+  elif [ "$DRY" -eq 1 ]; then
+    report WOULD-APPLY disable "$pkg" "pm disable-user --user 0"
+  else
+    adb shell pm disable-user --user 0 "$pkg" </dev/null >/dev/null 2>&1
+    if pkg_disabled_live "$pkg"; then
+      report APPLIED disable "$pkg" "pm disable-user --user 0"
+    else
+      report SKIPPED disable "$pkg" "did not verify"
+    fi
+  fi
+done < <(keep_pkgs keepDisabled)
 
 totals
 echo

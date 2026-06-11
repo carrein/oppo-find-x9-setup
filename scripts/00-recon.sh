@@ -47,19 +47,19 @@ while IFS= read -r pkg; do
 done < <(debloat_pkgs)
 [ "$drift" -eq 0 ] && echo "- none — device matches the list."
 echo
-echo "## Dependency-trap states (must be present/enabled — see config/keep-installed.json)"
-for src in exceptions mustStayEnabled; do
+echo "## Package-policy states (see config/keep-installed.json)"
+for src in exceptions mustStayEnabled keepDisabled; do
   while IFS= read -r pkg; do
     if ! pkg_on_device "$pkg"; then state="ABSENT FROM DEVICE"
-    elif ! pkg_installed_user "$pkg"; then state="uninstalled-for-user (needs install-existing)"
-    elif pkg_disabled "$pkg"; then state="disabled (needs pm enable)"
+    elif ! pkg_installed_user "$pkg"; then state="uninstalled-for-user"
+    elif pkg_disabled "$pkg"; then state="disabled"
     else state="installed + enabled"
     fi
-    echo "- $pkg: $state"
+    echo "- $pkg [$src]: $state"
   done < <(keep_pkgs "$src")
 done
 echo
-echo "## Watched settings"
-echo "- global audio_safe_volume_state: $(adb shell settings get global audio_safe_volume_state </dev/null | tr -d '\r')  (want 1 = warning disabled)"
+echo "## Informational settings (not managed — audio_safe_volume_state does not persist across reboots)"
+echo "- global audio_safe_volume_state: $(adb shell settings get global audio_safe_volume_state </dev/null | tr -d '\r')  (3 = warning armed, the post-reboot default)"
 echo
 echo "Report saved to: $OUT"

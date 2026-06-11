@@ -1,11 +1,6 @@
 {
-  "_comment": "Dependency traps — packages that look like bloat but break the device when removed. 'exceptions' are packages that appear in debloat-list.json yet must stay installed: 01-debloat.sh SKIPs them, 02-regression-fixes.sh restores them, 99-verify-all.sh asserts them. 'mustStayEnabled' are packages NOT in the debloat list that must never be disabled/uninstalled either way. Each entry records the symptom you get when you violate it, because every one of these was learned the hard way.",
-  "exceptions": [
-    {
-      "packageName": "com.coloros.gallery3d",
-      "reason": "The Camera app's last-shot preview thumbnail fires an intent with BOTH pkg and cmp pinned to com.coloros.gallery3d/com.oppo.gallery3d.app.ViewGallery. With the package uninstalled-for-user the tap is a silent no-op (no chooser, no toast) and no default-gallery setting can fix it. Restore: adb shell cmd package install-existing com.coloros.gallery3d. It is only invoked from the camera preview and will not take over as default gallery elsewhere."
-    }
-  ],
+  "_comment": "Dependency traps and deliberate package-state policy. 'exceptions' are packages in debloat-list.json that must stay installed anyway: 01-debloat.sh SKIPs them, 02-regression-fixes.sh restores them, 99-verify-all.sh asserts them (currently empty — gallery3d was here until the camera-preview tradeoff was decided the other way, see FIELD-NOTES #4). 'mustStayEnabled' are packages NOT in the debloat list that must never be disabled/uninstalled. 'keepDisabled' are packages not in the debloat list that are deliberately disabled (pm disable-user, data preserved): 01-debloat.sh enforces, 99-verify-all.sh asserts not-enabled. Each entry records the symptom/reason, because every one of these was learned the hard way.",
+  "exceptions": [],
   "mustStayEnabled": [
     {
       "packageName": "com.oplus.pantanal.ums",
@@ -18,10 +13,12 @@
     {
       "packageName": "com.oplus.keyguard.style.widgets",
       "reason": "Lockscreen widget plugin ('InspirationWidget' in logs) that talks to Pantanal. Needed alongside pantanal.ums + uiengine — enabling it alone is not sufficient, but disabling it breaks lockscreen widgets too."
-    },
+    }
+  ],
+  "keepDisabled": [
     {
       "packageName": "com.heytap.market",
-      "reason": "OPPO App Market — the delivery channel for download-on-demand first-party apps (e.g. IR Remote, com.oplus.consumerIRApp, which is NOT preinstalled and cannot be fetched any other way without sideloading)."
+      "reason": "OPPO App Market — phones home and is the storefront surface; disabled (not uninstalled) so app data survives. Its one legitimate job, delivering download-on-demand first-party apps (IR Remote, com.oplus.consumerIRApp), is covered by scripts/fetch-apk.sh sideloading with Oplus-signature verification instead."
     }
   ]
 }

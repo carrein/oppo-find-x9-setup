@@ -3,7 +3,7 @@
 #
 #   * Re-reads every controlled state fresh from the device and prints a PASS/FAIL line
 #     per check: the 176-package debloat list (aggregated; failures itemized), the
-#     dependency-trap packages (installed + enabled), and the controlled settings.
+#     dependency-trap packages (installed + enabled), and the deliberately-disabled set.
 #   * com.android.vending counts as PASS when uninstalled — the canonical state. If you
 #     just ran the one-time camera-QR module download (README Phase 7) and it's still
 #     installed, this flags it so you remember to uninstall it again.
@@ -62,17 +62,27 @@ for src in exceptions mustStayEnabled; do
 done
 
 echo
+echo "==== Deliberately disabled (keepDisabled) ===="
+while IFS= read -r pkg; do
+  if ! pkg_on_device "$pkg"; then state="absent"
+  elif ! pkg_installed_user "$pkg"; then state="uninstalled-for-user"
+  elif pkg_disabled "$pkg"; then state="disabled"
+  else state="enabled"
+  fi
+  if [ "$state" = "disabled" ] || [ "$state" = "uninstalled-for-user" ]; then
+    check "$pkg" "$state" "$state"
+  else
+    check "$pkg" "$state" "disabled"
+  fi
+done < <(keep_pkgs keepDisabled)
+
+echo
 echo "==== One-time packages ===="
 if pkg_installed_user com.android.vending; then
   check "com.android.vending (re-uninstall after QR module cached)" "installed" "uninstalled-for-user"
 else
   check "com.android.vending" "uninstalled-for-user" "uninstalled-for-user"
 fi
-
-echo
-echo "==== Settings ===="
-check "global audio_safe_volume_state (loudness warning off)" \
-      "$(adb shell settings get global audio_safe_volume_state </dev/null | tr -d '\r')" "1"
 
 echo
 printf '==== RESULT: %d PASS, %d FAIL ====\n' "$pass" "$fail"
