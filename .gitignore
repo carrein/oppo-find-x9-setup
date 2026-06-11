@@ -1,0 +1,10 @@
+# generated artifacts — may contain device identifiers, never commit
+recon-*.md
+*.log
+
+# downloaded APKs — fetch-apk.sh output, verify then install, never commit
+*.apk
+*.xapk
+
+# os cruft
+.DS_Store
