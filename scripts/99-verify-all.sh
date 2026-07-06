@@ -2,7 +2,7 @@
 # 99-verify-all.sh — read-only verification of the whole playbook. Makes no changes.
 #
 #   * Re-reads every controlled state fresh from the device and prints a PASS/FAIL line
-#     per check: the 176-package debloat list (aggregated; failures itemized), the
+#     per check: the 175-package debloat list (aggregated; failures itemized), the
 #     dependency-trap packages (installed + enabled), and the deliberately-disabled set.
 #   * com.android.vending counts as PASS when uninstalled — the canonical state. If you
 #     just ran the one-time camera-QR module download (README Phase 7) and it's still

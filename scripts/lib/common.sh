@@ -64,7 +64,7 @@ pkg_disabled_live() {
 }
 
 # ---- config readers -----------------------------------------------------------
-debloat_pkgs() { # the 176-package Canta export
+debloat_pkgs() { # the 175-package Canta export
   python3 -c 'import json,sys
 for a in json.load(open(sys.argv[1]))["apps"]: print(a["packageName"])' "$DEBLOAT_LIST"
 }

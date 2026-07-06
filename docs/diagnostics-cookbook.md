@@ -6,7 +6,7 @@ Non-root diagnostic commands that actually reveal something on ColorOS 15/16, co
 |---|---|
 | `adb logcat \| grep "OplusHansManager.*<uid>"` | HANS freeze state: `F enter` / `F exit` / `F stay=<seconds>` — the **only** non-root signal that ColorOS froze an app |
 | logcat filter `ActivityTaskManager:I` while tapping a UI element | The exact intent fired (`START ... act=... pkg=... cmp=...`); a `cmp=` followed by silence and `result code=0` means the target package is missing for user 0 |
-| `ActivityThread: Failed to find provider info for com.oplus.pantanal.ums.*` in logcat | Lockscreen widget picker broken by pantanal.ums removal (the `statictis` typo is literal in the logs) |
+| `ActivityThread: Failed to find provider info for com.oplus.pantanal.ums.*` in logcat | Lockscreen widget picker inert because pantanal.ums is disabled — a deliberate state here, not a bug (FIELD-NOTES #1; the `statictis` typo is literal in the logs) |
 | `DynamicModuleDownloader: Zapp module request failed: null` in logcat | A GMS dynamic-module download is blocked because `com.android.vending` is uninstalled (camera QR case) |
 | `adb shell pm list packages -u` | Packages present on the system partition including uninstalled-for-user — the first check after any post-debloat weirdness |
 | `adb shell pm list packages -d` | Disabled packages (the other debloat mechanism) |

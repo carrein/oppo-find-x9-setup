@@ -68,4 +68,4 @@ done < <(keep_pkgs keepDisabled)
 
 totals
 echo
-echo "Next: scripts/02-regression-fixes.sh --apply  (restores the dependency traps debloating breaks)"
+echo "Next: scripts/02-regression-fixes.sh --apply  (restores dependency traps if any are set — currently a no-op scaffold)"

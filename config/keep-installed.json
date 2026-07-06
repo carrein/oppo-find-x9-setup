@@ -1,24 +1,47 @@
 {
-  "_comment": "Dependency traps and deliberate package-state policy. 'exceptions' are packages in debloat-list.json that must stay installed anyway: 01-debloat.sh SKIPs them, 02-regression-fixes.sh restores them, 99-verify-all.sh asserts them (currently empty — gallery3d was here until the camera-preview tradeoff was decided the other way, see FIELD-NOTES #4). 'mustStayEnabled' are packages NOT in the debloat list that must never be disabled/uninstalled. 'keepDisabled' are packages not in the debloat list that are deliberately disabled (pm disable-user, data preserved): 01-debloat.sh enforces, 99-verify-all.sh asserts not-enabled. Each entry records the symptom/reason, because every one of these was learned the hard way.",
+  "_comment": "Dependency traps and deliberate package-state policy. 'exceptions' are packages in debloat-list.json that must stay installed anyway: 01-debloat.sh SKIPs them, 02-regression-fixes.sh restores them, 99-verify-all.sh asserts them (currently empty). 'mustStayEnabled' are packages NOT in the debloat list that must never be disabled/uninstalled (currently empty — the Pantanal lockscreen/Live-Alert stack lived here until the owner stopped using lockscreen widgets and Live Alerts and moved it to keepDisabled; see FIELD-NOTES #1). 'keepDisabled' are packages deliberately disabled (pm disable-user, data preserved) rather than uninstalled: 01-debloat.sh enforces, 99-verify-all.sh asserts not-enabled (disabled OR uninstalled-for-user both pass). Each entry records the symptom/reason, because most were learned the hard way.",
   "exceptions": [],
-  "mustStayEnabled": [
-    {
-      "packageName": "com.oplus.pantanal.ums",
-      "reason": "Owns the widget-catalog ContentProvider (com.oplus.pantanal.ums.card.configuration.provider). Disabled, the lockscreen 'Add widget' picker spins forever — PantanalClient inits with loadTimeout=-1."
-    },
-    {
-      "packageName": "com.oplus.uiengine",
-      "reason": "Owns the Epona IPC bus used by Pantanal; same lockscreen widget-picker hang as pantanal.ums."
-    },
-    {
-      "packageName": "com.oplus.keyguard.style.widgets",
-      "reason": "Lockscreen widget plugin ('InspirationWidget' in logs) that talks to Pantanal. Needed alongside pantanal.ums + uiengine — enabling it alone is not sufficient, but disabling it breaks lockscreen widgets too."
-    }
-  ],
+  "mustStayEnabled": [],
   "keepDisabled": [
     {
       "packageName": "com.heytap.market",
       "reason": "OPPO App Market — phones home and is the storefront surface; disabled (not uninstalled) so app data survives. Its one legitimate job, delivering download-on-demand first-party apps (IR Remote, com.oplus.consumerIRApp), is covered by scripts/fetch-apk.sh sideloading with Oplus-signature verification instead."
+    },
+    {
+      "packageName": "com.oplus.pantanal.ums",
+      "reason": "Widget-catalog ContentProvider AND the Pantanal 'seedling' engine shared with Fluid Cloud / Live Alerts (the dynamic-island capsule). Deliberately disabled: the owner uses neither lockscreen widgets nor Live Alerts. Removal-BLOCKED on ColorOS 16, so pm disable-user is the only durable off-switch. Re-enable (02-regression-fixes.sh, after moving back to mustStayEnabled) ONLY if you start using either surface — otherwise the lockscreen 'Add widget' picker hangs forever with no error (FIELD-NOTES #1)."
+    },
+    {
+      "packageName": "com.oplus.uiengine",
+      "reason": "Epona IPC bus behind Pantanal. Disabled alongside pantanal.ums for the same reason (lockscreen widgets + Live Alerts unused); enabling one without the other still hangs the widget picker."
+    },
+    {
+      "packageName": "com.oplus.keyguard.style.widgets",
+      "reason": "Lockscreen widget plugin ('InspirationWidget' in logs) that talks to Pantanal. Currently uninstalled-for-user on the reference device and kept out of the active set — lockscreen widgets are unused. keepDisabled accepts uninstalled-for-user as a valid off-state; if an OTA re-enables it, 01-debloat.sh disables it again."
+    },
+    {
+      "packageName": "com.android.chrome",
+      "reason": "Google Chrome. Kept disabled (data preserved) rather than uninstalled-for-user, by owner preference. Moved OUT of debloat-list.json so re-runs of 01-debloat.sh disable-and-keep instead of uninstalling."
+    },
+    {
+      "packageName": "com.heytap.htms",
+      "reason": "HeyTap Mobile Services — HeyTap account/push/telemetry surface that phones home; disabled (data preserved)."
+    },
+    {
+      "packageName": "com.oplus.aiunit",
+      "reason": "On-device AI inference unit (OPPO AI features); disabled — unused, and part of the AI-surface reduction."
+    },
+    {
+      "packageName": "com.oplus.cosa",
+      "reason": "COSA (connectivity / game-network optimization service); disabled — unused."
+    },
+    {
+      "packageName": "com.oplus.pay",
+      "reason": "OPPO Pay wallet service; disabled — unused, phones home."
+    },
+    {
+      "packageName": "com.oplus.themestore",
+      "reason": "Theme Store — storefront that phones home; disabled (data preserved)."
     }
   ]
 }

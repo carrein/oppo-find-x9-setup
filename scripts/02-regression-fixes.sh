@@ -6,9 +6,12 @@
 #     'mustStayEnabled') is installed for user 0 AND enabled:
 #       uninstalled-for-user  →  cmd package install-existing <pkg>
 #       disabled              →  pm enable <pkg>
-#   * Fix covered: the lockscreen 'Add widget' picker hang (pantanal.ums + uiengine +
-#     keyguard.style.widgets). The camera-preview gallery3d fix used to live here too —
-#     deliberately dropped, see FIELD-NOTES #4 (broken preview accepted over OPPO Gallery).
+#   * Currently a no-op scaffold: both 'exceptions' and 'mustStayEnabled' are empty.
+#       - The lockscreen 'Add widget' picker hang fix (pantanal.ums + uiengine +
+#         keyguard.style.widgets) used to live here; those packages were moved to
+#         keepDisabled because the owner uses neither lockscreen widgets nor Live Alerts
+#         (FIELD-NOTES #1). To re-enable that surface, move them back to mustStayEnabled.
+#       - The camera-preview gallery3d fix was also dropped here (FIELD-NOTES #4).
 #   * Force-stops com.oplus.wallpapers once if any lockscreen-widget package changed —
 #     the picker is rendered inside that process and caches the broken state.
 #

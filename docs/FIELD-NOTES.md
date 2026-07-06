@@ -2,26 +2,30 @@
 
 Reference log of issues encountered on OPPO Find X9 / X9 Ultra (ColorOS 15/16, Android 16) and what worked to debug or work around them. Everything in `scripts/` and the README's manual phases was derived from these entries.
 
-Devices referenced: Find X9 Ultra (`<device-serial>`, ColorOS 16) and Find X9 (`CPH2841`, ColorOS V16.1.0).
+Primary device: **Find X9 Ultra** (`CPH2841`, ColorOS V16.1.0, build `CPH2841_16.0.8.306(EX01)`, Android 16, SG / en-SG, security patch 2026-06-01 — `ro.vendor.oplus.market.name` reports *OPPO Find X9 Ultra*). Findings should port across the Find X9 series / ColorOS 15–16.
 
 ---
 
-## 1. Lockscreen "Add widget" picker hangs forever
+## 1. Lockscreen "Add widget" picker hangs forever — now a deliberate state
+
+> **Canonical decision (updated 2026-07):** the owner uses neither lockscreen widgets nor Live Alerts, so the Pantanal stack is kept **disabled** (`keepDisabled` in `config/keep-installed.json`) and this hang is **expected, not a bug to fix**. `pantanal.ums` + `uiengine` are removal-blocked on ColorOS 16, so `pm disable-user` is the durable off-switch; `keyguard.style.widgets` is uninstalled-for-user. The mitigation below is retained for anyone who *does* want the surface back — move the three packages to `mustStayEnabled` and run `02`.
 
 - **Symptom:** After Canta/Shizuku debloating, opening the lockscreen widget picker spins indefinitely with no error.
 - **Diagnostics:**
   - `adb logcat` shows three `ActivityThread: Failed to find provider info for com.oplus.pantanal.ums.{statictis,track,card.configuration.provider}` lines (the "statictis" typo is literal) immediately before `PantaCard.Lock.PantanalClient: init`.
   - Picker is rendered inline inside `com.oplus.wallpapers/.themes.edit.ThemeEditActivity` via the PantanalClient SDK, not a separate Activity.
 - **Root cause:** Picker depends on two packages that get disabled during debloating:
-  - `com.oplus.pantanal.ums` — owns the widget catalog ContentProvider; without it `PantanalClient` inits with `loadTimeout=-1`.
+  - `com.oplus.pantanal.ums` — owns the widget catalog ContentProvider; without it `PantanalClient` inits with `loadTimeout=-1`. Also the shared "seedling" engine behind Fluid Cloud / Live Alerts, so disabling it turns off both surfaces at once.
   - `com.oplus.uiengine` — owns the Epona IPC bus used by Pantanal.
-- **Mitigation** (automated by `scripts/02-regression-fixes.sh`):
+- **Mitigation (available, NOT applied by default — this re-enables lockscreen widgets + Live Alerts):**
   ```
+  adb shell cmd package install-existing com.oplus.keyguard.style.widgets   # if uninstalled-for-user
   adb shell pm enable com.oplus.pantanal.ums
   adb shell pm enable com.oplus.uiengine
+  adb shell pm enable com.oplus.keyguard.style.widgets
   adb shell am force-stop com.oplus.wallpapers
   ```
-- **Note:** `com.oplus.keyguard.style.widgets` ("InspirationWidget") uses Pantanal — keep enabled too, but enabling it alone is not sufficient. Confirmed safe to keep disabled: `com.oplus.metis`, `com.daemon.shelper`, `com.oplus.omoji`, `com.coloros.ocs.opencapabilityservice`, `com.oplus.aimemory`, `com.heytap.pictorial`.
+- **Note:** `com.oplus.keyguard.style.widgets` ("InspirationWidget") uses Pantanal — needed alongside the other two, but enabling it alone is not sufficient. Confirmed safe to keep disabled: `com.oplus.metis`, `com.daemon.shelper`, `com.oplus.omoji`, `com.coloros.ocs.opencapabilityservice`, `com.oplus.aimemory`, `com.heytap.pictorial`.
 
 ---
 

@@ -1,14 +1,14 @@
 # OPPO Find X9 (ColorOS) Privacy & Setup Playbook
 
-A complete, ordered, **self-verifying** procedure to take an OPPO Find X9 from stock ColorOS to a debloated, privacy-first daily driver **without root** — Canta-grade debloat (176 packages) with the dependency traps excepted, the post-debloat regressions fixed, ColorOS's background-freezer (HANS) tamed, hardware keys remapped, and apps sourced without a Google account. Hand this (and `scripts/`) to a person or an agent and run it top-to-bottom.
+A complete, ordered, **self-verifying** procedure to take an OPPO Find X9 from stock ColorOS to a debloated, privacy-first daily driver **without root** — Canta-grade debloat (175 packages) with the dependency traps excepted, the post-debloat regressions triaged (fixed where wanted, deliberately accepted where not), ColorOS's background-freezer (HANS) tamed, hardware keys remapped, and apps sourced without a Google account. Hand this (and `scripts/`) to a person or an agent and run it top-to-bottom.
 
 Every scriptable change is idempotent (safe to re-run; already-correct state reports `ALREADY-OK`) and reversible without reflashing — the APKs stay on the system partition, so `cmd package install-existing` undoes any removal. `scripts/99-verify-all.sh` re-reads the entire controlled state fresh from the device and prints a PASS/FAIL table — nothing is assumed, it's *checked*.
 
-> **Scope & portability.** Verified on Find X9 (`CPH2841`, ColorOS V16.1.0, Android 16) and Find X9 Ultra (ColorOS 16). The debloat list in `config/debloat-list.json` is a real device's Canta export — package availability varies by region/build, and missing packages report `NOT-FOUND` harmlessly. The scripts are plain bash + adb + python3 (stdlib only); no jq, no root, no Magisk.
+> **Scope & portability.** Verified on the **Find X9 Ultra** (`CPH2841`, ColorOS V16.1.0, build `CPH2841_16.0.8.306(EX01)`, Android 16, SG / en-SG, security patch 2026-06-01 — the unit's own `ro.vendor.oplus.market.name` reports *OPPO Find X9 Ultra*). The debloat list in `config/debloat-list.json` is this device's Canta export — package availability varies by region/build, and missing packages report `NOT-FOUND` harmlessly, so it ports across the Find X9 series. The scripts are plain bash + adb + python3 (stdlib only); no jq, no root, no Magisk, and no bash 4 — they run on macOS's stock bash 3.2.
 
 > **No-root caveat (read this).** There is no public root for the Find X9 series. Everything here works within `adb shell` privileges. Some ColorOS state is simply unreachable — the "Restricted activity" battery toggle can be neither set nor read over adb, and HANS exemptions are UI-only. Those steps are flagged 🖥️ and verified behaviorally, not programmatically.
 
-> **Governing principles:** ① **Nothing phones home that doesn't have to** — HeyTap/Google/Facebook/Microsoft preloads are uninstalled-for-user, not merely disabled. ② **Every change is reversible without a reflash** — uninstall-for-user keeps the APK on the system partition; `config/keep-installed.json` records every dependency trap so a re-run never breaks the camera or lockscreen. ③ **Verify, don't assume** — and when background behavior breaks anyway, suspect HANS first, because every AOSP-level check will lie to you.
+> **Governing principles:** ① **Nothing phones home that doesn't have to** — HeyTap/Google/Facebook/Microsoft preloads are uninstalled-for-user, not merely disabled. ② **Every change is reversible without a reflash** — uninstall-for-user keeps the APK on the system partition; `config/keep-installed.json` records every dependency trap and every deliberately-disabled package so a re-run never breaks the camera and never silently re-enables what you turned off. ③ **Verify, don't assume** — and when background behavior breaks anyway, suspect HANS first, because every AOSP-level check will lie to you.
 
 ---
 
@@ -24,7 +24,7 @@ Prerequisites: `adb` (platform-tools) on the PATH, `python3`, USB or wireless de
 
 ### 🚫 Hard safety rules — never violate (each caused real breakage)
 
-1. **Never remove or disable `com.oplus.pantanal.ums`, `com.oplus.uiengine`, or `com.oplus.keyguard.style.widgets`.** The lockscreen "Add widget" picker spins forever with no error and nothing in the UI tells you why.
+1. **The Pantanal lockscreen/Live-Alert stack (`com.oplus.pantanal.ums`, `com.oplus.uiengine`, `com.oplus.keyguard.style.widgets`) is deliberately disabled in this canon** — it uses neither lockscreen widgets nor Live Alerts. If you *do* use either, keep all three enabled: move them back to `mustStayEnabled` in `config/keep-installed.json` and run `02`. Turned off (as here), the lockscreen "Add widget" picker spins forever with no error and nothing in the UI tells you why — that hang is expected, not a bug (FIELD-NOTES #1).
 2. **Never expect the Camera preview thumbnail to work without `com.coloros.gallery3d`.** The Camera pins both `pkg` and `cmp` to it — with it debloated (the canonical state here), the tap is a silent no-op and no default-gallery setting can help. That's a known, accepted cost, not a bug to chase (see [docs/FIELD-NOTES.md](docs/FIELD-NOTES.md) #4).
 3. **Never trust the AOSP battery-optimization whitelist on ColorOS.** HANS freezes apps independently of it. The ColorOS battery "Don't optimize" list is a *separate* UI and the only exemption that counts.
 4. **Never install a mirror-downloaded APK without `apksigner verify --print-certs`** and comparing the digest against a known-good publisher fingerprint. `scripts/fetch-apk.sh` refuses to install for exactly this reason.
@@ -36,16 +36,16 @@ Prerequisites: `adb` (platform-tools) on the PATH, `python3`, USB or wireless de
 
 Read-only snapshot: device identity (model, ColorOS/Android versions), package-state counts, drift between `config/debloat-list.json` and the device's actual state, dependency-trap status, watched settings. Run it first on a fresh device and again any time the device feels "off" — the drift section tells you exactly what an OTA quietly re-installed.
 
-**✅ Verify:** the report lists each `mustStayEnabled` package as `installed + enabled`, the `keepDisabled` set as `disabled`, and the drift section matches your expectations.
+**✅ Verify:** the report lists each `mustStayEnabled` package as `installed + enabled` (that set is currently empty), the `keepDisabled` set as `disabled` or `uninstalled-for-user`, and the drift section matches your expectations.
 
 ## Phase 1 — Debloat 🔒 `scripts/01-debloat.sh`
 
-Uninstalls-for-user-0 every package in `config/debloat-list.json` — a real Find X9's Canta export, 176 packages of HeyTap cloud/browser/music/ads, OPPO AI surfaces, Google apps and telemetry mainline modules, Facebook/Microsoft preloads, and Qualcomm test scaffolding.
+Uninstalls-for-user-0 every package in `config/debloat-list.json` — a real Find X9 Ultra's Canta export, 175 packages of HeyTap cloud/browser/music/ads, OPPO AI surfaces, Google apps and telemetry mainline modules, Facebook/Microsoft preloads, and Qualcomm test scaffolding. For the full removed-package inventory — both mechanisms, grouped by vendor and annotated — see [docs/removed-packages.md](docs/removed-packages.md).
 
 | What | How it's handled |
 |---|---|
 | Dependency-trap exceptions (`config/keep-installed.json`) | `SKIPPED` with the reason, never uninstalled |
-| `keepDisabled` set (`com.heytap.market`) | `pm disable-user --user 0` — data preserved, reversible with `pm enable` |
+| `keepDisabled` set (`config/keep-installed.json` — HeyTap Market, the Pantanal stack, Chrome, and other phone-home surfaces) | `pm disable-user --user 0` — data preserved, reversible with `pm enable` |
 | Packages not on your build/region | `NOT-FOUND`, harmless |
 | Already-debloated packages | `ALREADY-OK` (idempotent re-runs) |
 | Everything else | `pm uninstall --user 0`, re-checked, then `APPLIED` |
@@ -58,13 +58,12 @@ App data of removed packages is wiped (Canta semantics); the APKs stay on the sy
 
 ## Phase 2 — Regression fixes 🔒 `scripts/02-regression-fixes.sh`
 
-Restores what debloating breaks — learned the hard way, documented in [docs/FIELD-NOTES.md](docs/FIELD-NOTES.md):
+Restores what debloating breaks — learned the hard way, documented in [docs/FIELD-NOTES.md](docs/FIELD-NOTES.md). **Currently a no-op scaffold:** the one automated fix it used to carry (the lockscreen widget-picker restore) was retired when the Pantanal stack moved to `keepDisabled` — see below. The script still runs and reports `Totals:` with nothing to do; it stays numbered so re-enabling a surface later has a home.
 
-| # | Fix | Symptom it cures |
-|---|---|---|
-| 1 | `pm enable com.oplus.pantanal.ums` + `com.oplus.uiengine` + `com.oplus.keyguard.style.widgets`, then force-stop `com.oplus.wallpapers` | Lockscreen "Add widget" picker hangs forever |
-
-> **Deliberately NOT fixed.** Two regressions are known, fixable, and accepted as-is: the **camera preview thumbnail** stays a silent no-op (fixing it means reinstating OPPO Gallery — tried, reverted; FIELD-NOTES #4), and the **IR Remote** has no on-device delivery channel because `com.heytap.market` stays disabled — sideload it with `scripts/fetch-apk.sh com.oplus.consumerIRApp` instead (FIELD-NOTES #7).
+> **Deliberately NOT fixed / accepted as-is.** Three regressions are known, fixable, and left broken on purpose:
+> - **Lockscreen "Add widget" picker hangs** — `pantanal.ums` + `uiengine` + `keyguard.style.widgets` are deliberately disabled (lockscreen widgets + Live Alerts unused). To restore: move those three back to `mustStayEnabled` in `config/keep-installed.json` and run `02 --apply` (FIELD-NOTES #1).
+> - **Camera preview thumbnail** stays a silent no-op — fixing it means reinstating OPPO Gallery (tried, reverted; FIELD-NOTES #4).
+> - **IR Remote** has no on-device delivery channel because `com.heytap.market` stays disabled — sideload it with `scripts/fetch-apk.sh com.oplus.consumerIRApp` instead (FIELD-NOTES #7).
 
 **One-time, manual** 🔒+🖥️ — camera **QR mode** uses a hardcoded GMS barcode proxy whose module downloads through the Play Store:
 
@@ -74,7 +73,7 @@ adb shell cmd package install-existing com.android.vending
 adb shell pm uninstall --user 0 com.android.vending
 ```
 
-**✅ Verify:** lockscreen → hold → "Add widget" opens; Camera → QR mode scans. (The preview thumbnail staying dead is expected — see above.)
+**✅ Verify:** Camera → QR mode scans. (The preview thumbnail and the lockscreen "Add widget" picker staying dead is expected — see above.)
 
 ## Phase 3 — Settings 🔒 `scripts/03-settings.sh`
 
@@ -112,14 +111,14 @@ The separate **"Restricted activity"** toggle is invisible to adb in both direct
 
 ## Phase 7 — Launcher & widgets 🖥️ 🟧
 
-- **Lockscreen widgets** work because Phase 2 restored the Pantanal stack. If the picker ever hangs again, something re-disabled `pantanal.ums`/`uiengine` — re-run `02`.
+- **Lockscreen widgets** are intentionally off in this canon — the Pantanal stack (`pantanal.ums`/`uiengine`/`keyguard.style.widgets`) is kept disabled because neither lockscreen widgets nor Live Alerts are used, so the "Add widget" picker hangs (expected). To turn the surface back on, move those three back to `mustStayEnabled` and run `02`.
 - **Lawnchair users:** collection widgets (event lists etc.) cache their `RemoteViewsAdapter` — fresh data won't render until the provider itself calls `notifyAppWidgetViewDataChanged()`. Either keep the provider alive (Phase-5 exemption + its own ContentObserver), or nudge the widget physically (long-press → drag a resize handle), or use a launcher without this cache (stock, Niagara, KISS).
 
-**✅ Verify:** add a lockscreen widget; home-screen list widget shows an item created a minute ago after the provider refreshes.
+**✅ Verify:** home-screen list widget shows an item created a minute ago after the provider refreshes. (Lockscreen widgets are intentionally disabled here — see above.)
 
 ## ✅ Verify everything `scripts/99-verify-all.sh`
 
-Read-only; re-reads the full controlled state and prints `[PASS]`/`[FAIL]` per check — all 176 debloat-list packages (aggregated, failures itemized), every dependency trap `installed+enabled`, the `keepDisabled` set not enabled, `com.android.vending` back off after the QR one-time. Exits non-zero on any mismatch, so it works in a cron/CI hook.
+Read-only; re-reads the full controlled state and prints `[PASS]`/`[FAIL]` per check — all 175 debloat-list packages (aggregated, failures itemized), the dependency-trap sets (`exceptions` + `mustStayEnabled`, currently empty) `installed+enabled`, the `keepDisabled` set not enabled (disabled or uninstalled-for-user both pass), `com.android.vending` back off after the QR one-time. Exits non-zero on any mismatch, so it works in a cron/CI hook.
 
 ---
 
@@ -137,18 +136,20 @@ Read-only; re-reads the full controlled state and prints `[PASS]`/`[FAIL]` per c
 oppo-find-x9-setup/
 ├── README.md                    this playbook
 ├── config/
-│   ├── debloat-list.json        canonical Canta export · 176 packages
-│   └── keep-installed.json      dependency traps · why each one breaks the device
+│   ├── debloat-list.json        canonical Canta export · 175 packages
+│   └── keep-installed.json      package-state policy · dependency traps + the deliberately-disabled set, with a reason each
 ├── docs/
+│   ├── removed-packages.md      readable inventory · 175 uninstalled + 10 disabled, grouped (generated)
 │   ├── FIELD-NOTES.md           the issues log this playbook was distilled from
 │   └── diagnostics-cookbook.md  non-root ColorOS diagnostics that actually work
 └── scripts/
     ├── lib/common.sh            adb guard · status vocabulary · cached pm reads
     ├── 00-recon.sh              👤 snapshot + drift report
     ├── 01-debloat.sh            🔒 the list, minus the traps
-    ├── 02-regression-fixes.sh   🔒 what debloating breaks
+    ├── 02-regression-fixes.sh   🔒 restores what debloating breaks (now a no-op scaffold)
     ├── 03-settings.sh           🔒 settings scaffold (currently none survive reboot)
     ├── fetch-apk.sh             APKPure CDN pull + signature check (never installs)
+    ├── gen-removed-packages.sh  regenerate docs/removed-packages.md from config (no device)
     └── 99-verify-all.sh         👤 PASS/FAIL · exit 1 on mismatch
 LICENSE (MIT)
 ```

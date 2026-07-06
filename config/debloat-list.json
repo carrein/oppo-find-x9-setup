@@ -150,7 +150,6 @@
     { "packageName": "com.qualcomm.qti.uimGbaApp" },
     { "packageName": "com.oplus.engineercamera" },
     { "packageName": "com.google.android.syncadapters.calendar" },
-    { "packageName": "com.android.chrome" },
     { "packageName": "com.google.android.apps.bard" },
     { "packageName": "com.oplus.accesscard" },
     { "packageName": "com.oplus.wifibackuprestore" },
