@@ -24,13 +24,13 @@ parse_apply "$@"
 need_adb
 pm_load
 
-# exception set: in the debloat list but load-bearing (camera preview etc.)
-declare -A KEEP=()
-while IFS= read -r pkg; do KEEP[$pkg]=1; done < <(keep_pkgs exceptions)
-while IFS= read -r pkg; do KEEP[$pkg]=1; done < <(keep_pkgs mustStayEnabled)
+# exception set: in the debloat list but load-bearing (camera preview etc.).
+# Kept as a newline-delimited string, not `declare -A` — macOS bash 3.2 has no assoc arrays.
+KEEP_SET=$(printf '%s\n%s\n' "$(keep_pkgs exceptions)" "$(keep_pkgs mustStayEnabled)")
+is_keep() { grep -Fqx "$1" <<<"$KEEP_SET"; }
 
 while IFS= read -r pkg; do
-  if [ -n "${KEEP[$pkg]:-}" ]; then
+  if is_keep "$pkg"; then
     report SKIPPED debloat "$pkg" "dependency trap — see config/keep-installed.json"
   elif ! pkg_on_device "$pkg"; then
     report NOT-FOUND debloat "$pkg" "not on this build/region"

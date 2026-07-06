@@ -13,18 +13,21 @@ CONFIG_DIR="$REPO_ROOT/config"
 DEBLOAT_LIST="$CONFIG_DIR/debloat-list.json"
 KEEP_LIST="$CONFIG_DIR/keep-installed.json"
 
-declare -A COUNT=()
-
+# Status tallies live in per-status scalar vars (COUNT_APPLIED, COUNT_ALREADY_OK, …)
+# rather than an associative array: macOS ships bash 3.2, which has no `declare -A`.
 report() { # report STATUS SECTION NAME [DETAIL]
   local st="$1" section="$2" name="$3" detail="${4:-}"
-  COUNT[$st]=$(( ${COUNT[$st]:-0} + 1 ))
+  local var="COUNT_${st//-/_}"
+  eval "$var=\$(( \${$var:-0} + 1 ))"
   printf '[%-11s] %s :: %s%s\n' "$st" "$section" "$name" "${detail:+ :: $detail}"
 }
 
 totals() {
-  local out="Totals:" k
+  local out="Totals:" k var v
   for k in APPLIED ALREADY-OK WOULD-APPLY SKIPPED NOT-FOUND; do
-    [ -n "${COUNT[$k]:-}" ] && out+=" $k=${COUNT[$k]}"
+    var="COUNT_${k//-/_}"
+    eval "v=\${$var:-}"
+    [ -n "$v" ] && out+=" $k=$v"
   done
   printf '\n%s\n' "$out"
 }

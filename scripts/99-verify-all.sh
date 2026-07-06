@@ -30,12 +30,12 @@ check() { # check <label> <got> <want>
 note() { printf '[ -- ] %-58s %s\n' "$1" "$2"; }
 
 echo "==== Debloat list (config/debloat-list.json) ===="
-declare -A KEEP=()
-while IFS= read -r pkg; do KEEP[$pkg]=1; done < <(keep_pkgs exceptions)
-while IFS= read -r pkg; do KEEP[$pkg]=1; done < <(keep_pkgs mustStayEnabled)
+# Set membership via a newline-delimited string, not `declare -A` (macOS bash 3.2).
+KEEP_SET=$(printf '%s\n%s\n' "$(keep_pkgs exceptions)" "$(keep_pkgs mustStayEnabled)")
+is_keep() { grep -Fqx "$1" <<<"$KEEP_SET"; }
 gone=0 absent=0 still=0
 while IFS= read -r pkg; do
-  [ -n "${KEEP[$pkg]:-}" ] && continue   # asserted in the next section instead
+  is_keep "$pkg" && continue   # asserted in the next section instead
   if ! pkg_on_device "$pkg"; then
     absent=$(( absent + 1 ))
   elif pkg_installed_user "$pkg"; then
